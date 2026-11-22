@@ -1,0 +1,11 @@
+import * as THREE from 'three';
+import {box} from './city.js';
+export class Pedestrians {
+ constructor(scene,roads){this.people=[];this.scene=scene;this.roads=roads;for(let i=0;i<22;i++){const mesh=new THREE.Group();box(.65,.85,.4,['#ce795b','#578f8b','#eed19a','#707aa8'][i%4],0,1.2,0,mesh);box(.45,.48,.45,['#b67b58','#e5b58c','#825c48'][i%3],0,1.9,0,mesh);const legs=[-.19,.19].map(x=>box(.23,.8,.28,'#354a59',x,.45,0,mesh));scene.add(mesh);this.people.push({mesh,legs,panic:0,down:0,phase:i});}}
+ spawn(p,center){const nearby=this.roads.filter(l=>Math.abs(center[l.axis==='x'?'z':'x']-l.coordinate)<65);const l=nearby[Math.floor(Math.random()*nearby.length)]||this.roads[0];p.lane=l;p.direction=Math.random()<.5?-1:1;const axis=l.axis,other=axis==='x'?'z':'x';p.mesh.position[axis]=THREE.MathUtils.clamp(center[axis]+(Math.random()-.5)*130,l.min+4,l.max-4);p.mesh.position[other]=l.coordinate+(Math.random()<.5?-10:10);p.mesh.rotation.z=0;p.mesh.position.y=0;p.down=0;p.panic=0;}
+ reset(center){for(const p of this.people)this.spawn(p,center);}
+ witnesses(pos){return this.people.some(p=>!p.down&&p.mesh.position.distanceTo(pos)<32);}
+ panic(pos){for(const p of this.people)if(!p.down&&p.mesh.position.distanceTo(pos)<48){p.panic=7;p.direction=Math.sign(p.mesh.position[p.lane.axis]-pos[p.lane.axis])||p.direction;}}
+ drop(p){p.down=12;p.mesh.rotation.z=Math.PI/2;p.mesh.position.y=.35;}
+ update(dt,player,police){for(const p of this.people){if(p.mesh.position.distanceTo(player.position)>105){this.spawn(p,player.position);continue;}if(p.down){p.down-=dt;if(p.down<=0)this.spawn(p,player.position);continue;}const d=p.mesh.position.distanceTo(player.position);if(player.car&&Math.abs(player.car.speed)>9&&d<16){p.panic=5;p.direction=Math.sign(p.mesh.position[p.lane.axis]-player.position[p.lane.axis])||p.direction;}if(player.car&&Math.abs(player.car.speed)>5&&d<2.7){this.drop(p);police.crime(1);continue;}p.panic=Math.max(0,p.panic-dt);const axis=p.lane.axis;p.mesh.position[axis]+=p.direction*(p.panic?6:1.5)*dt;if(p.mesh.position[axis]>p.lane.max-3||p.mesh.position[axis]<p.lane.min+3)p.direction*=-1;p.mesh.rotation.y=axis==='x'?p.direction*Math.PI/2:p.direction>0?0:Math.PI;p.phase+=dt*(p.panic?15:4);p.legs.forEach((m,i)=>m.rotation.x=Math.sin(p.phase+i*Math.PI)*.5);}}
+}
